@@ -26,9 +26,70 @@ namespace block_bbb_session_monitor;
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once($CFG->dirroot . '/mod/bigbluebuttonbn/classes/local/bigbluebutton.php');
-
 class session_manager {
+    
+    /**
+     * Check if BigBlueButton module is available
+     *
+     * @return bool
+     */
+    private function is_bbb_available() {
+        global $CFG;
+        
+        // Check if BBB module is installed
+        $bbb_path = $CFG->dirroot . '/mod/bigbluebuttonbn';
+        if (!is_dir($bbb_path)) {
+            return false;
+        }
+        
+        // Check if the main BBB class file exists
+        $bbb_class_file = $bbb_path . '/classes/local/bigbluebutton.php';
+        if (!file_exists($bbb_class_file)) {
+            // Try alternative path for older versions
+            $bbb_class_file = $bbb_path . '/locallib.php';
+            if (!file_exists($bbb_class_file)) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Load BBB classes if available
+     *
+     * @return bool Success status
+     */
+    private function load_bbb_classes() {
+        global $CFG;
+        
+        if (!$this->is_bbb_available()) {
+            debugging('BigBlueButton module is not available');
+            return false;
+        }
+        
+        try {
+            // Try to include the BBB classes
+            $bbb_class_file = $CFG->dirroot . '/mod/bigbluebuttonbn/classes/local/bigbluebutton.php';
+            if (file_exists($bbb_class_file)) {
+                require_once($bbb_class_file);
+                return true;
+            }
+            
+            // Fallback to locallib for older versions
+            $bbb_locallib = $CFG->dirroot . '/mod/bigbluebuttonbn/locallib.php';
+            if (file_exists($bbb_locallib)) {
+                require_once($bbb_locallib);
+                return true;
+            }
+            
+            return false;
+            
+        } catch (Exception $e) {
+            debugging('Error loading BBB classes: ' . $e->getMessage());
+            return false;
+        }
+    }
     
     /**
      * Get all active BBB sessions
@@ -41,7 +102,7 @@ class session_manager {
         $sql = "SELECT s.*, c.fullname as coursename, b.name as activityname
                 FROM {block_bbb_sessions} s
                 JOIN {course} c ON s.courseid = c.id
-                JOIN {bigbluebuttonbn} b ON s.instanceid = b.id
+                LEFT JOIN {bigbluebuttonbn} b ON s.instanceid = b.id
                 WHERE s.status = 'active'
                 ORDER BY s.starttime DESC";
         
@@ -101,7 +162,7 @@ class session_manager {
         $sql = "SELECT s.*, c.fullname as coursename, b.name as activityname
                 FROM {block_bbb_sessions} s
                 JOIN {course} c ON s.courseid = c.id
-                JOIN {bigbluebuttonbn} b ON s.instanceid = b.id
+                LEFT JOIN {bigbluebuttonbn} b ON s.instanceid = b.id
                 WHERE {$where_clause}
                 ORDER BY s.starttime DESC";
         
@@ -134,6 +195,12 @@ class session_manager {
      */
     public function update_session_from_api($meeting_id) {
         global $DB;
+        
+        // Check if BBB is available before proceeding
+        if (!$this->load_bbb_classes()) {
+            debugging('Cannot update session from API: BBB module not available');
+            return false;
+        }
         
         try {
             // Get meeting info from BBB API
@@ -292,6 +359,11 @@ class session_manager {
     // Private helper methods
     
     private function get_meeting_info_from_bbb($meeting_id) {
+        // Only attempt BBB API calls if module is available
+        if (!$this->is_bbb_available()) {
+            return null;
+        }
+        
         // Implementation would use BBB API to get meeting info
         // This is a placeholder - actual implementation would use mod_bigbluebuttonbn classes
         return null;
@@ -312,26 +384,38 @@ class session_manager {
         
         // Implementation would create new session record
         // This requires mapping BBB meeting to Moodle course/activity
+        // Only proceed if BBB module is available
+        if (!$this->is_bbb_available()) {
+            return false;
+        }
+        
+        // Placeholder for session creation logic
+        return true;
     }
     
     private function handle_meeting_created($event_data) {
         // Handle meeting created webhook
+        debugging('Meeting created webhook received: ' . json_encode($event_data));
     }
     
     private function handle_meeting_ended($event_data) {
         // Handle meeting ended webhook
+        debugging('Meeting ended webhook received: ' . json_encode($event_data));
     }
     
     private function handle_user_joined($event_data) {
         // Handle user joined webhook
+        debugging('User joined webhook received: ' . json_encode($event_data));
     }
     
     private function handle_user_left($event_data) {
         // Handle user left webhook
+        debugging('User left webhook received: ' . json_encode($event_data));
     }
     
     private function handle_recording_ready($event_data) {
         // Handle recording ready webhook
+        debugging('Recording ready webhook received: ' . json_encode($event_data));
     }
     
     private function get_sessions_by_day($days) {

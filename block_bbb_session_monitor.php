@@ -24,8 +24,6 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once($CFG->dirroot . '/blocks/bbb_session_monitor/classes/session_manager.php');
-
 class block_bbb_session_monitor extends block_base {
 
     public function init() {
@@ -53,17 +51,26 @@ class block_bbb_session_monitor extends block_base {
         $PAGE->requires->css('/blocks/bbb_session_monitor/styles.css');
         
         // Get session data
-        $session_manager = new \block_bbb_session_monitor\session_manager();
-        $active_sessions = $session_manager->get_active_sessions();
-        $user_role = $this->get_user_role();
+        try {
+            $session_manager = new \block_bbb_session_monitor\session_manager();
+            $active_sessions = $session_manager->get_active_sessions();
+            $user_role = $this->get_user_role();
 
-        // Filter sessions based on user role
-        if ($user_role !== 'admin') {
-            $active_sessions = $this->filter_sessions_by_user($active_sessions);
+            // Filter sessions based on user role
+            if ($user_role !== 'admin') {
+                $active_sessions = $this->filter_sessions_by_user($active_sessions);
+            }
+
+            // Build the content
+            $this->content->text = $this->build_dashboard_content($active_sessions);
+            
+        } catch (Exception $e) {
+            // Handle gracefully if session manager fails
+            debugging('Error loading session manager: ' . $e->getMessage());
+            $this->content->text = '<div class="alert alert-warning">' . 
+                                   get_string('error_loading_sessions', 'block_bbb_session_monitor') . 
+                                   '</div>';
         }
-
-        // Build the content
-        $this->content->text = $this->build_dashboard_content($active_sessions);
 
         return $this->content;
     }
